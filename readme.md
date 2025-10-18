@@ -1,5 +1,8 @@
 # Tarea 6 – Parte 2: DNIC (Servidor Java + Cliente Python)
-
+Integrantes
+Andrea Nunez
+Atilio Paredees
+Elena Ramirez
 ## Protocolo
 CONSULTA:
 - CONSULTAR <cedula> -> DATOS <cedula>|<nombre>|<apellido>|<estado> | NOT_FOUND
