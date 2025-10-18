@@ -19,7 +19,10 @@ public class MainServer {
             this.apellido = apellido;
             this.estado = estado;
         }
-        String asLine() { return String.join("|", cedula, nombre, apellido, estado); }
+
+        String asLine() {
+            return String.join("|", cedula, nombre, apellido, estado);
+        }
     }
 
     // “Base de datos” en memoria segura para hilos
@@ -28,7 +31,7 @@ public class MainServer {
     public static void main(String[] args) {
         int port = 5000;
         System.out.println("[SERVIDOR] DNIC TCP escuchando en puerto " + port + " ...");
-        precargar(); // datos demo opcionales
+        precargar(); // datos demo
 
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             while (true) {
@@ -44,11 +47,18 @@ public class MainServer {
     static void precargar() {
         DB.put("123", new Ciudadano("123", "Ana", "Lopez", "vigente"));
         DB.put("456", new Ciudadano("456", "Luis", "Gomez", "tramite"));
+        DB.put("789", new Ciudadano("789", "Jose", "Ramirez", "vigente"));
+        DB.put("321", new Ciudadano("321", "Axel", "Pacheco", "tramite"));
+        DB.put("654", new Ciudadano("654", "Alan", "Paredes", "vigente"));
+        DB.put("987", new Ciudadano("987", "Andrea", "Ortiz", "tramite"));
     }
 
     static class ClientHandler implements Runnable {
         private final Socket socket;
-        ClientHandler(Socket s) { this.socket = s; }
+
+        ClientHandler(Socket s) {
+            this.socket = s;
+        }
 
         @Override
         public void run() {
@@ -58,12 +68,18 @@ public class MainServer {
                 BufferedWriter out = new BufferedWriter(
                     new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
             ) {
+                // Mensaje de bienvenida
+                out.write("Bienvenido al servidor DNIC.\n");
+                out.write("Comandos disponibles: CONSULTAR, CREAR, ACTUALIZAR, ELIMINAR, LISTAR, QUIT\n");
+                out.flush();
+
                 String line;
                 while ((line = in.readLine()) != null) {
+                    System.out.println("[SERVIDOR] Comando recibido: " + line);
                     String resp = handle(line);
-                    out.write(resp);
-                    out.write("\n");
+                    out.write(resp + "\n");
                     out.flush();
+                    System.out.println("[SERVIDOR] Respuesta enviada: " + resp);
                     if ("QUIT".equalsIgnoreCase(line.trim())) break;
                 }
             } catch (IOException e) {
@@ -87,6 +103,7 @@ public class MainServer {
                     Ciudadano c = DB.get(rest);
                     return (c == null) ? "NOT_FOUND" : "DATOS " + c.asLine();
                 }
+
                 case "LISTAR": {
                     List<Ciudadano> list = new ArrayList<>(DB.values());
                     StringBuilder sb = new StringBuilder();
@@ -94,11 +111,13 @@ public class MainServer {
                     for (Ciudadano c : list) sb.append(c.asLine()).append("\n");
                     return sb.toString().trim();
                 }
+
                 case "ESTADO": {
                     if (rest.isEmpty()) return "ERROR Usage: ESTADO <cedula>";
                     Ciudadano c = DB.get(rest);
                     return (c == null) ? "NOT_FOUND" : "ESTADO " + c.estado;
                 }
+
                 case "CREAR": {
                     // CREAR <cedula> <nombre>;<apellido>;<estado>
                     String[] p = rest.split("\\s+", 2);
@@ -107,9 +126,12 @@ public class MainServer {
                     String[] campos = p[1].split(";", 3);
                     if (campos.length < 3) return "ERROR Usage: CREAR <cedula> <nombre>;<apellido>;<estado>";
                     if (DB.containsKey(ced)) return "ERROR Ya existe";
+                    if (!campos[2].matches("vigente|vencido|tramite"))
+                        return "ERROR Estado inválido. Use: vigente|vencido|tramite";
                     DB.put(ced, new Ciudadano(ced, campos[0], campos[1], campos[2]));
                     return "OK";
                 }
+
                 case "ACTUALIZAR": {
                     // ACTUALIZAR <cedula> <nombre>;<apellido>;<estado>
                     String[] p = rest.split("\\s+", 2);
@@ -119,17 +141,22 @@ public class MainServer {
                     if (campos.length < 3) return "ERROR Usage: ACTUALIZAR <cedula> <nombre>;<apellido>;<estado>";
                     Ciudadano c = DB.get(ced);
                     if (c == null) return "NOT_FOUND";
+                    if (!campos[2].matches("vigente|vencido|tramite"))
+                        return "ERROR Estado inválido. Use: vigente|vencido|tramite";
                     c.nombre = campos[0];
                     c.apellido = campos[1];
                     c.estado = campos[2];
                     return "OK";
                 }
+
                 case "ELIMINAR": {
                     if (rest.isEmpty()) return "ERROR Usage: ELIMINAR <cedula>";
                     return (DB.remove(rest) == null) ? "NOT_FOUND" : "OK";
                 }
+
                 case "QUIT":
                     return "OK";
+
                 default:
                     return "ERROR Unknown command";
             }
